@@ -51,17 +51,13 @@ export class EventSourcingService {
       case EventType.FREEZE:
         newState.frozenBalance += event.amount
         newState.availableBalance -= event.amount
-        if (newState.availableBalance === 0) {
-          newState.isFrozen = true
-        }
+        newState.isFrozen = newState.frozenBalance > 0
         break
 
       case EventType.UNFREEZE:
         newState.frozenBalance -= event.amount
         newState.availableBalance += event.amount
-        if (newState.frozenBalance === 0 && newState.isFrozen) {
-          newState.isFrozen = false
-        }
+        newState.isFrozen = newState.frozenBalance > 0
         break
 
       case EventType.COMPENSATE:
@@ -89,7 +85,7 @@ export class EventSourcingService {
     return state
   }
 
-  calculateBalance(timestamp?: string): BalanceResponse {
+  async calculateBalance(timestamp?: string): Promise<BalanceResponse> {
     const latestSnapshot = timestamp 
       ? this.snapshotStore.getNearestBefore(timestamp)
       : this.snapshotStore.getLatest()
@@ -115,8 +111,8 @@ export class EventSourcingService {
     }
 
     const events = timestamp
-      ? this.eventStore.getEventsBefore(timestamp, fromVersion)
-      : this.eventStore.getEvents(fromVersion)
+      ? await this.eventStore.getEventsBeforeAsync(timestamp, fromVersion)
+      : await this.eventStore.getEventsAsync(fromVersion)
 
     const finalState = this.replayEvents(events, initialState)
 
@@ -131,8 +127,8 @@ export class EventSourcingService {
     }
   }
 
-  getAccountState(): AccountState {
-    const balance = this.calculateBalance()
+  async getAccountState(): Promise<AccountState> {
+    const balance = await this.calculateBalance()
     return {
       totalBalance: balance.totalBalance,
       availableBalance: balance.availableBalance,
@@ -142,23 +138,24 @@ export class EventSourcingService {
     }
   }
 
-  canConsume(amount: number): boolean {
-    const state = this.getAccountState()
+  async canConsume(amount: number): Promise<boolean> {
+    const state = await this.getAccountState()
     return !state.isFrozen && state.availableBalance >= amount
   }
 
-  canFreeze(amount: number): boolean {
-    const state = this.getAccountState()
+  async canFreeze(amount: number): Promise<boolean> {
+    const state = await this.getAccountState()
     return state.availableBalance >= amount
   }
 
-  canUnfreeze(amount: number): boolean {
-    const state = this.getAccountState()
+  async canUnfreeze(amount: number): Promise<boolean> {
+    const state = await this.getAccountState()
     return state.frozenBalance >= amount
   }
 
-  createSnapshot(): AccountSnapshot {
-    const state = this.getAccountState()
+  async createSnapshot(): Promise<AccountSnapshot> {
+    const state = await this.getAccountState()
+    const archivedCount = await this.getArchivedEventCount()
     const snapshot: AccountSnapshot = {
       id: `snap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date().toISOString(),
@@ -167,16 +164,28 @@ export class EventSourcingService {
       frozenBalance: state.frozenBalance,
       isFrozen: state.isFrozen,
       lastEventVersion: state.lastEventVersion,
-      eventCount: this.eventStore.getEventCount()
+      eventCount: this.eventStore.getEventCount() + archivedCount
     }
 
     this.snapshotStore.save(snapshot)
     return snapshot
   }
 
-  shouldCreateSnapshot(threshold: number = 100): boolean {
+  private async getArchivedEventCount(): Promise<number> {
+    try {
+      const module = await import('./ArchiveService.js')
+      const archiveService = module.ArchiveService.getInstance()
+      const stats = archiveService.getStorageStats()
+      return stats?.archivedEventCount || 0
+    } catch {
+      return 0
+    }
+  }
+
+  async shouldCreateSnapshot(threshold: number = 100): Promise<boolean> {
     const latestSnapshot = this.snapshotStore.getLatest()
-    const currentEventCount = this.eventStore.getEventCount()
+    const archivedCount = await this.getArchivedEventCount()
+    const currentEventCount = this.eventStore.getEventCount() + archivedCount
     
     if (!latestSnapshot) {
       return currentEventCount >= threshold

@@ -7,9 +7,9 @@ const router = Router()
 const accountService = AccountService.getInstance()
 const eventSourcingService = EventSourcingService.getInstance()
 
-router.get('/balance', (req: Request, res: Response) => {
+router.get('/balance', async (req: Request, res: Response) => {
   try {
-    const balance = accountService.getBalance()
+    const balance = await accountService.getBalance()
     const response: ApiResponse<typeof balance> = {
       success: true,
       data: balance
@@ -24,10 +24,10 @@ router.get('/balance', (req: Request, res: Response) => {
   }
 })
 
-router.get('/balance/:timestamp', (req: Request, res: Response) => {
+router.get('/balance/:timestamp', async (req: Request, res: Response) => {
   try {
     const { timestamp } = req.params
-    const balance = accountService.getBalance(timestamp)
+    const balance = await accountService.getBalance(timestamp)
     const response: ApiResponse<typeof balance> = {
       success: true,
       data: balance,
@@ -43,10 +43,10 @@ router.get('/balance/:timestamp', (req: Request, res: Response) => {
   }
 })
 
-router.post('/recharge', (req: Request, res: Response) => {
+router.post('/recharge', async (req: Request, res: Response) => {
   try {
     const request: OperationRequest = req.body
-    const event = accountService.recharge(request)
+    const event = await accountService.recharge(request)
     const response: ApiResponse<typeof event> = {
       success: true,
       data: event,
@@ -62,10 +62,10 @@ router.post('/recharge', (req: Request, res: Response) => {
   }
 })
 
-router.post('/consume', (req: Request, res: Response) => {
+router.post('/consume', async (req: Request, res: Response) => {
   try {
     const request: OperationRequest = req.body
-    const event = accountService.consume(request)
+    const event = await accountService.consume(request)
     const response: ApiResponse<typeof event> = {
       success: true,
       data: event,
@@ -81,10 +81,10 @@ router.post('/consume', (req: Request, res: Response) => {
   }
 })
 
-router.post('/refund', (req: Request, res: Response) => {
+router.post('/refund', async (req: Request, res: Response) => {
   try {
     const request: OperationRequest = req.body
-    const event = accountService.refund(request)
+    const event = await accountService.refund(request)
     const response: ApiResponse<typeof event> = {
       success: true,
       data: event,
@@ -100,10 +100,10 @@ router.post('/refund', (req: Request, res: Response) => {
   }
 })
 
-router.post('/freeze', (req: Request, res: Response) => {
+router.post('/freeze', async (req: Request, res: Response) => {
   try {
     const request: OperationRequest = req.body
-    const event = accountService.freeze(request)
+    const event = await accountService.freeze(request)
     const response: ApiResponse<typeof event> = {
       success: true,
       data: event,
@@ -119,10 +119,10 @@ router.post('/freeze', (req: Request, res: Response) => {
   }
 })
 
-router.post('/unfreeze', (req: Request, res: Response) => {
+router.post('/unfreeze', async (req: Request, res: Response) => {
   try {
     const request: OperationRequest = req.body
-    const event = accountService.unfreeze(request)
+    const event = await accountService.unfreeze(request)
     const response: ApiResponse<typeof event> = {
       success: true,
       data: event,
@@ -138,13 +138,13 @@ router.post('/unfreeze', (req: Request, res: Response) => {
   }
 })
 
-router.post('/compensate', (req: Request, res: Response) => {
+router.post('/compensate', async (req: Request, res: Response) => {
   try {
     const { request, compensateType } = req.body as {
       request: OperationRequest
       compensateType: EventType
     }
-    const event = accountService.compensate(request, compensateType)
+    const event = await accountService.compensate(request, compensateType)
     const response: ApiResponse<typeof event> = {
       success: true,
       data: event,

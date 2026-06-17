@@ -16,9 +16,6 @@ async function initDemoData() {
     return
   }
 
-  const now = Date.now()
-  const oneDay = 24 * 60 * 60 * 1000
-
   try {
     await accountService.recharge({
       amount: 10000,
@@ -69,14 +66,6 @@ async function initDemoData() {
     })
     console.log('✓ 退款 ¥500.00')
 
-    await accountService.freeze({
-      amount: 4000,
-      businessNo: generateBusinessNo('FRZ'),
-      operator: 'admin',
-      description: '订单保证金冻结'
-    })
-    console.log('✓ 冻结 ¥4,000.00')
-
     await accountService.recharge({
       amount: 8000,
       businessNo: generateBusinessNo('REC'),
@@ -93,6 +82,14 @@ async function initDemoData() {
     })
     console.log('✓ 消费支出 ¥1,200.00')
 
+    await accountService.freeze({
+      amount: 4000,
+      businessNo: generateBusinessNo('FRZ'),
+      operator: 'admin',
+      description: '订单保证金冻结'
+    })
+    console.log('✓ 冻结 ¥4,000.00')
+
     await accountService.unfreeze({
       amount: 2000,
       businessNo: generateBusinessNo('UFR'),
@@ -101,13 +98,13 @@ async function initDemoData() {
     })
     console.log('✓ 解冻 ¥2,000.00')
 
-    const snapshot = eventSourcingService.createSnapshot()
-    console.log(`✓ 创建快照，当前总余额: ¥${(10000 + 5000 - 2500 - 1800 - 3000 + 500 - 4000 + 8000 - 1200).toFixed(2)}`)
+    const snapshot = await eventSourcingService.createSnapshot()
+    console.log(`✓ 创建快照，总余额: ¥${snapshot.totalBalance.toFixed(2)}`)
 
     console.log('\n演示数据初始化完成！')
     console.log(`总计 ${eventStore.getEventCount()} 条事件记录`)
     
-    const balance = accountService.getBalance()
+    const balance = await accountService.getBalance()
     console.log(`\n当前账户状态:`)
     console.log(`  总余额: ¥${balance.totalBalance.toFixed(2)}`)
     console.log(`  可用余额: ¥${balance.availableBalance.toFixed(2)}`)

@@ -19,7 +19,7 @@ export class AccountService {
     return AccountService.instance
   }
 
-  recharge(request: OperationRequest): AccountEvent {
+  async recharge(request: OperationRequest): Promise<AccountEvent> {
     if (request.amount <= 0) {
       throw new Error('充值金额必须大于0')
     }
@@ -33,16 +33,16 @@ export class AccountService {
       request.relatedEventId
     )
 
-    this.checkAndCreateSnapshot()
+    await this.checkAndCreateSnapshot()
     return event
   }
 
-  consume(request: OperationRequest): AccountEvent {
+  async consume(request: OperationRequest): Promise<AccountEvent> {
     if (request.amount <= 0) {
       throw new Error('消费金额必须大于0')
     }
 
-    const state = this.eventSourcingService.getAccountState()
+    const state = await this.eventSourcingService.getAccountState()
     
     if (state.isFrozen) {
       throw new Error('账户处于冻结状态，无法进行消费操作')
@@ -61,11 +61,11 @@ export class AccountService {
       request.relatedEventId
     )
 
-    this.checkAndCreateSnapshot()
+    await this.checkAndCreateSnapshot()
     return event
   }
 
-  refund(request: OperationRequest): AccountEvent {
+  async refund(request: OperationRequest): Promise<AccountEvent> {
     if (request.amount <= 0) {
       throw new Error('退款金额必须大于0')
     }
@@ -92,16 +92,16 @@ export class AccountService {
       request.relatedEventId
     )
 
-    this.checkAndCreateSnapshot()
+    await this.checkAndCreateSnapshot()
     return event
   }
 
-  freeze(request: OperationRequest): AccountEvent {
+  async freeze(request: OperationRequest): Promise<AccountEvent> {
     if (request.amount <= 0) {
       throw new Error('冻结金额必须大于0')
     }
 
-    const state = this.eventSourcingService.getAccountState()
+    const state = await this.eventSourcingService.getAccountState()
     
     if (state.availableBalance < request.amount) {
       throw new Error(`可用余额不足，当前可用余额: ${state.availableBalance}`)
@@ -117,16 +117,16 @@ export class AccountService {
       { freezeReason: request.description || '系统冻结' }
     )
 
-    this.checkAndCreateSnapshot()
+    await this.checkAndCreateSnapshot()
     return event
   }
 
-  unfreeze(request: OperationRequest): AccountEvent {
+  async unfreeze(request: OperationRequest): Promise<AccountEvent> {
     if (request.amount <= 0) {
       throw new Error('解冻金额必须大于0')
     }
 
-    const state = this.eventSourcingService.getAccountState()
+    const state = await this.eventSourcingService.getAccountState()
     
     if (state.frozenBalance < request.amount) {
       throw new Error(`冻结余额不足，当前冻结余额: ${state.frozenBalance}`)
@@ -141,11 +141,11 @@ export class AccountService {
       request.relatedEventId
     )
 
-    this.checkAndCreateSnapshot()
+    await this.checkAndCreateSnapshot()
     return event
   }
 
-  compensate(request: OperationRequest, compensateType: EventType): AccountEvent {
+  async compensate(request: OperationRequest, compensateType: EventType): Promise<AccountEvent> {
     if (request.amount <= 0) {
       throw new Error('补偿金额必须大于0')
     }
@@ -173,17 +173,17 @@ export class AccountService {
       }
     )
 
-    this.checkAndCreateSnapshot()
+    await this.checkAndCreateSnapshot()
     return event
   }
 
-  getBalance(timestamp?: string): BalanceResponse {
+  async getBalance(timestamp?: string): Promise<BalanceResponse> {
     return this.eventSourcingService.calculateBalance(timestamp)
   }
 
-  private checkAndCreateSnapshot(): void {
-    if (this.eventSourcingService.shouldCreateSnapshot(50)) {
-      this.eventSourcingService.createSnapshot()
+  private async checkAndCreateSnapshot(): Promise<void> {
+    if (await this.eventSourcingService.shouldCreateSnapshot(50)) {
+      await this.eventSourcingService.createSnapshot()
     }
   }
 }

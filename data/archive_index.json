@@ -1,0 +1,14 @@
+{
+  "archives": [
+    {
+      "id": "archive_1781721004817_snap_1781720698602_ss9cuufcu",
+      "createdAt": "2026-06-17T18:30:04.820Z",
+      "fromVersion": 1,
+      "toVersion": 10,
+      "eventCount": 10,
+      "snapshotId": "snap_1781720698602_ss9cuufcu",
+      "compressedSize": 775,
+      "originalSize": 2308
+    }
+  ]
+}

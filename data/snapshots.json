@@ -1,12 +1,12 @@
 {
   "snapshots": [
     {
-      "id": "snap_1781719410211_yo7nkdi2x",
-      "timestamp": "2026-06-17T18:03:30.211Z",
+      "id": "snap_1781720698602_ss9cuufcu",
+      "timestamp": "2026-06-17T18:24:58.602Z",
       "totalBalance": 15000,
       "availableBalance": 13000,
       "frozenBalance": 2000,
-      "isFrozen": false,
+      "isFrozen": true,
       "lastEventVersion": 10,
       "eventCount": 10
     }

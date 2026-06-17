@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   Database,
   HardDrive,
@@ -9,10 +9,26 @@ import {
   CreditCard,
   Lock,
   Package,
-  BarChart3
+  BarChart3,
+  Calendar,
+  FileText,
+  RefreshCw
 } from 'lucide-react'
 import { useAccountStore } from '../store/useAccountStore'
 import { formatMoney, formatDate, formatBytes } from '../lib/format'
+import { api } from '../lib/api'
+import { AccountSnapshot } from '../../shared/types'
+
+interface ArchiveInfo {
+  id: string
+  createdAt: string
+  fromVersion: number
+  toVersion: number
+  eventCount: number
+  snapshotId: string
+  compressedSize: number
+  originalSize: number
+}
 
 export const Snapshots: React.FC = () => {
   const { snapshots, fetchSnapshots } = useAccountStore()
@@ -31,36 +47,79 @@ export const Snapshots: React.FC = () => {
     archivedEventCount: number
   } | null>(null)
 
-  useEffect(() => {
-    fetchSnapshots()
-    loadArchiveStats()
+  const [archives, setArchives] = useState<ArchiveInfo[]>([])
+  const [latestSnapshot, setLatestSnapshot] = useState<AccountSnapshot | null>(null)
+  const [localLoading, setLocalLoading] = useState(false)
+
+  const loadAllData = useCallback(async () => {
+    setLocalLoading(true)
+    try {
+      await Promise.all([
+        fetchSnapshots(),
+        loadArchiveStats(),
+        loadArchives(),
+        loadLatestSnapshot()
+      ])
+    } finally {
+      setLocalLoading(false)
+    }
   }, [fetchSnapshots])
 
   const loadArchiveStats = async () => {
     try {
-      const response = await fetch('/api/snapshots/archive/stats')
-      const data = await response.json()
-      if (data.success && data.data) {
-        setArchiveStats(data.data)
+      const response = await api.getArchiveStats()
+      if (response.success && response.data) {
+        setArchiveStats(response.data)
       }
     } catch (err) {
       console.error('Failed to load archive stats:', err)
     }
   }
 
+  const loadArchives = async () => {
+    try {
+      const response = await api.getArchives()
+      if (response.success && response.data) {
+        setArchives(response.data)
+      }
+    } catch (err) {
+      console.error('Failed to load archives:', err)
+    }
+  }
+
+  const loadLatestSnapshot = async () => {
+    try {
+      const response = await api.getLatestSnapshot()
+      if (response.success && response.data) {
+        setLatestSnapshot(response.data)
+      } else {
+        setLatestSnapshot(null)
+      }
+    } catch (err) {
+      console.error('Failed to load latest snapshot:', err)
+    }
+  }
+
+  useEffect(() => {
+    loadAllData()
+  }, [loadAllData])
+
   const handleCreateSnapshot = async () => {
     const success = await createSnapshot()
     if (success) {
-      fetchSnapshots()
+      await loadAllData()
     }
   }
 
   const handleCreateArchive = async () => {
     const success = await createArchive()
     if (success) {
-      fetchSnapshots()
-      loadArchiveStats()
+      await loadAllData()
     }
+  }
+
+  const handleRefresh = () => {
+    loadAllData()
   }
 
   return (
@@ -83,6 +142,18 @@ export const Snapshots: React.FC = () => {
         </div>
       )}
 
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">快照管理</h1>
+        <button
+          onClick={handleRefresh}
+          disabled={localLoading || loading}
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${localLoading || loading ? 'animate-spin' : ''}`} />
+          刷新
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -103,7 +174,7 @@ export const Snapshots: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-bold text-gray-900 mb-1">
-            {snapshots.length > 0 ? snapshots[0].eventCount : 0}
+            {latestSnapshot?.eventCount || snapshots[0]?.eventCount || 0}
           </div>
           <div className="text-sm text-gray-500">累计事件数</div>
         </div>
@@ -133,6 +204,51 @@ export const Snapshots: React.FC = () => {
         </div>
       </div>
 
+      {latestSnapshot && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-blue-600" />
+            最新快照
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white/80 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">快照时间</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {formatDate(latestSnapshot.timestamp)}
+              </div>
+            </div>
+            <div className="bg-white/80 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">总余额</div>
+              <div className="text-lg font-bold text-gray-900">
+                {formatMoney(latestSnapshot.totalBalance)}
+              </div>
+            </div>
+            <div className="bg-white/80 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">可用余额</div>
+              <div className="text-lg font-bold text-emerald-600">
+                {formatMoney(latestSnapshot.availableBalance)}
+              </div>
+            </div>
+            <div className="bg-white/80 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">冻结余额</div>
+              <div className="text-lg font-bold text-amber-600">
+                {formatMoney(latestSnapshot.frozenBalance)}
+              </div>
+            </div>
+            <div className="bg-white/80 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">状态</div>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                latestSnapshot.isFrozen 
+                  ? 'bg-amber-100 text-amber-700' 
+                  : 'bg-emerald-100 text-emerald-700'
+              }`}>
+                {latestSnapshot.isFrozen ? '已冻结' : '正常'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -144,10 +260,10 @@ export const Snapshots: React.FC = () => {
           </p>
           <button
             onClick={handleCreateSnapshot}
-            disabled={loading}
+            disabled={loading || localLoading}
             className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
           >
-            {loading ? (
+            {loading || localLoading ? (
               <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
@@ -168,10 +284,10 @@ export const Snapshots: React.FC = () => {
           </p>
           <button
             onClick={handleCreateArchive}
-            disabled={loading}
+            disabled={loading || localLoading || !latestSnapshot}
             className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
           >
-            {loading ? (
+            {loading || localLoading ? (
               <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
@@ -180,6 +296,9 @@ export const Snapshots: React.FC = () => {
               </>
             )}
           </button>
+          {!latestSnapshot && (
+            <p className="text-xs text-amber-600 mt-2">请先创建快照后再执行归档</p>
+          )}
         </div>
       </div>
 
@@ -214,6 +333,67 @@ export const Snapshots: React.FC = () => {
                 {archiveStats.archivedEventCount}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {archives.length > 0 && (
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-purple-600" />
+            归档历史
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">归档时间</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">版本范围</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">事件数量</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">原始大小</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">压缩后</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">压缩率</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {archives.map((archive) => {
+                  const ratio = archive.originalSize > 0
+                    ? ((archive.originalSize - archive.compressedSize) / archive.originalSize * 100).toFixed(1)
+                    : '0.0'
+                  return (
+                    <tr key={archive.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatDate(archive.createdAt)}
+                        </div>
+                        <div className="text-xs text-gray-500 font-mono">{archive.id.slice(0, 30)}...</div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="text-sm text-gray-900 font-mono">
+                          v{archive.fromVersion} ~ v{archive.toVersion}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {archive.eventCount} 条
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="text-sm text-gray-900">{formatBytes(archive.originalSize)}</div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="text-sm text-gray-900">{formatBytes(archive.compressedSize)}</div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">
+                          {ratio}%
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

@@ -78,9 +78,9 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 })
 
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const snapshot = eventSourcingService.createSnapshot()
+    const snapshot = await eventSourcingService.createSnapshot()
     const response: ApiResponse<typeof snapshot> = {
       success: true,
       data: snapshot,

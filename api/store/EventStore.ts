@@ -1,12 +1,30 @@
+import fs from 'fs'
+import path from 'path'
+import zlib from 'zlib'
+import { promisify } from 'util'
 import { AccountEvent, EventType } from '../../shared/types.js'
-import { readJsonFile, writeJsonFile, fileExists } from '../data/index.js'
+import { readJsonFile, writeJsonFile, fileExists, DATA_DIR } from '../data/index.js'
+
+const gunzip = promisify(zlib.gunzip)
 
 interface EventStoreData {
   events: AccountEvent[]
   lastVersion: number
 }
 
+interface ArchiveIndexEntry {
+  id: string
+  createdAt: string
+  fromVersion: number
+  toVersion: number
+  eventCount: number
+  snapshotId: string
+  compressedSize: number
+  originalSize: number
+}
+
 const EVENTS_FILE = 'events.json'
+const ARCHIVE_INDEX_FILE = 'archive_index.json'
 
 export class EventStore {
   private static instance: EventStore
@@ -68,6 +86,48 @@ export class EventStore {
     return event
   }
 
+  private async loadArchiveIndex(): Promise<ArchiveIndexEntry[]> {
+    try {
+      const data = await readJsonFile(ARCHIVE_INDEX_FILE)
+      if (!data || !Array.isArray(data.archives)) return []
+      return data.archives
+    } catch (e) {
+      return []
+    }
+  }
+
+  private async restoreArchiveDirectly(archiveId: string): Promise<AccountEvent[]> {
+    const filePath = path.join(DATA_DIR, `${archiveId}.json.gz`)
+    if (!await fileExists(`${archiveId}.json.gz`)) return []
+    
+    try {
+      const compressed = fs.readFileSync(filePath)
+      const decompressed = await gunzip(compressed)
+      const json = JSON.parse(decompressed.toString('utf-8'))
+      if (!json || !Array.isArray(json.events)) return []
+      return json.events
+    } catch (e) {
+      console.error(`Failed to restore archive ${archiveId}:`, e)
+      return []
+    }
+  }
+
+  async getAllEventsIncludingArchived(): Promise<AccountEvent[]> {
+    const allEvents = [...this.data.events]
+    const archives = await this.loadArchiveIndex()
+    
+    for (const archive of archives) {
+      try {
+        const archivedEvents = await this.restoreArchiveDirectly(archive.id)
+        allEvents.push(...archivedEvents)
+      } catch (e) {
+        console.error(`Failed to load archive ${archive.id}:`, e)
+      }
+    }
+    
+    return allEvents.sort((a, b) => a.version - b.version)
+  }
+
   getEvents(fromVersion: number = 1, toVersion?: number): AccountEvent[] {
     const events = this.data.events.filter(e => e.version >= fromVersion)
     if (toVersion !== undefined) {
@@ -76,8 +136,40 @@ export class EventStore {
     return events
   }
 
+  private needsArchivedEvents(fromVersion: number): boolean {
+    if (this.data.events.length === 0) {
+      return true
+    }
+    const activeMinVersion = Math.min(...this.data.events.map(e => e.version))
+    return fromVersion < activeMinVersion
+  }
+
+  async getEventsAsync(fromVersion: number = 1, toVersion?: number): Promise<AccountEvent[]> {
+    if (!this.needsArchivedEvents(fromVersion)) {
+      return this.getEvents(fromVersion, toVersion)
+    }
+    
+    const allEvents = await this.getAllEventsIncludingArchived()
+    const filtered = allEvents.filter(e => e.version >= fromVersion)
+    if (toVersion !== undefined) {
+      return filtered.filter(e => e.version <= toVersion)
+    }
+    return filtered
+  }
+
   getEventsBefore(timestamp: string, fromVersion: number = 1): AccountEvent[] {
     return this.data.events.filter(
+      e => e.version >= fromVersion && e.occurredAt <= timestamp
+    )
+  }
+
+  async getEventsBeforeAsync(timestamp: string, fromVersion: number = 1): Promise<AccountEvent[]> {
+    if (!this.needsArchivedEvents(fromVersion)) {
+      return this.getEventsBefore(timestamp, fromVersion)
+    }
+    
+    const allEvents = await this.getAllEventsIncludingArchived()
+    return allEvents.filter(
       e => e.version >= fromVersion && e.occurredAt <= timestamp
     )
   }
