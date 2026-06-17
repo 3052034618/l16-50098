@@ -1,0 +1,109 @@
+{
+  "events": [
+    {
+      "id": "evt_1781719410206_lmzsgbmvi",
+      "version": 1,
+      "type": "recharge",
+      "amount": 10000,
+      "occurredAt": "2026-06-17T18:03:30.206Z",
+      "businessNo": "INIT20260617SGBCQR",
+      "operator": "system",
+      "description": "初始账户资金"
+    },
+    {
+      "id": "evt_1781719410207_i10bslgiw",
+      "version": 2,
+      "type": "recharge",
+      "amount": 5000,
+      "occurredAt": "2026-06-17T18:03:30.207Z",
+      "businessNo": "REC20260617I73GQJ",
+      "operator": "admin",
+      "description": "经营收入"
+    },
+    {
+      "id": "evt_1781719410207_0j2z4qj8h",
+      "version": 3,
+      "type": "consume",
+      "amount": 2500,
+      "occurredAt": "2026-06-17T18:03:30.207Z",
+      "businessNo": "PAY20260617P8EM6J",
+      "operator": "admin",
+      "description": "采购办公用品"
+    },
+    {
+      "id": "evt_1781719410208_q5kxa7ejy",
+      "version": 4,
+      "type": "consume",
+      "amount": 1800,
+      "occurredAt": "2026-06-17T18:03:30.208Z",
+      "businessNo": "PAY202606170X1KFY",
+      "operator": "admin",
+      "description": "支付供应商货款"
+    },
+    {
+      "id": "evt_1781719410208_akltvplby",
+      "version": 5,
+      "type": "consume",
+      "amount": 3000,
+      "occurredAt": "2026-06-17T18:03:30.208Z",
+      "businessNo": "PAY202606179ET8G6",
+      "operator": "admin",
+      "description": "采购设备"
+    },
+    {
+      "id": "evt_1781719410209_pxeujmbeq",
+      "version": 6,
+      "type": "refund",
+      "amount": 500,
+      "occurredAt": "2026-06-17T18:03:30.209Z",
+      "businessNo": "REF20260617AP4PES",
+      "operator": "admin",
+      "description": "设备退货退款",
+      "relatedEventId": "evt_1781719410208_akltvplby"
+    },
+    {
+      "id": "evt_1781719410210_z7y8qpz9h",
+      "version": 7,
+      "type": "freeze",
+      "amount": 4000,
+      "occurredAt": "2026-06-17T18:03:30.210Z",
+      "businessNo": "FRZ20260617YUKEMZ",
+      "operator": "admin",
+      "description": "订单保证金冻结",
+      "metadata": {
+        "freezeReason": "订单保证金冻结"
+      }
+    },
+    {
+      "id": "evt_1781719410210_u20nsj6p8",
+      "version": 8,
+      "type": "recharge",
+      "amount": 8000,
+      "occurredAt": "2026-06-17T18:03:30.210Z",
+      "businessNo": "REC20260617T3ZM87",
+      "operator": "admin",
+      "description": "客户预付款"
+    },
+    {
+      "id": "evt_1781719410210_62t942ft2",
+      "version": 9,
+      "type": "consume",
+      "amount": 1200,
+      "occurredAt": "2026-06-17T18:03:30.210Z",
+      "businessNo": "PAY20260617NS1BFL",
+      "operator": "admin",
+      "description": "水电费支出"
+    },
+    {
+      "id": "evt_1781719410211_zsiymu2e2",
+      "version": 10,
+      "type": "unfreeze",
+      "amount": 2000,
+      "occurredAt": "2026-06-17T18:03:30.211Z",
+      "businessNo": "UFR202606174E4ZOF",
+      "operator": "admin",
+      "description": "部分保证金解冻"
+    }
+  ],
+  "lastVersion": 10
+}
